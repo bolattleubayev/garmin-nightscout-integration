@@ -12,6 +12,18 @@ This is an independent, community-built project. It is **not affiliated with, en
 
 **This app is not a medical device and is not a substitute for your primary CGM receiver or app.** Always confirm glucose readings and trends on your CGM's official display before making any treatment decision, including insulin dosing. Displayed data may be delayed, stale, or unavailable due to network, server, or sensor issues — use at your own risk.
 
+**Assumption of risk.** By installing and using this app, you acknowledge that you are doing so voluntarily and at your own risk, and that you are solely responsible for verifying any data it displays against your primary CGM device before acting on it.
+
+**No warranty.** This software is provided "as is," without warranty of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, accuracy, or non-infringement. See [LICENSE](LICENSE) for the full text.
+
+**Limitation of liability.** To the maximum extent permitted by applicable law, the author(s) of this app shall not be liable for any direct, indirect, incidental, special, consequential, or exemplary damages (including but not limited to health outcomes, missed or incorrect treatment decisions, or data loss) arising out of or in connection with the use, or inability to use, this app — even if advised of the possibility of such damages.
+
+**Your own Nightscout instance.** You are responsible for ensuring you have the right to access and display data from whatever Nightscout instance you configure the app to use (for example, your own data, or a dependent's with appropriate authorization).
+
+## License
+
+Released under the [MIT License](LICENSE) — see that file for the full text, including its own warranty disclaimer.
+
 ---
 
 ## Features
