@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<settings>
+    <setting propertyKey="@Properties.NightscoutUrl" title="@Strings.SettingNightscoutUrlTitle">
+        <settingConfig type="alphaNumeric" maxLength="120"/>
+    </setting>
+    <setting propertyKey="@Properties.NightscoutSecret" title="@Strings.SettingNightscoutSecretTitle">
+        <settingConfig type="alphaNumeric" maxLength="120"/>
+    </setting>
+</settings>

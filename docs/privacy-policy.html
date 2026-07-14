@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Garmin CGM Watch Face</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+  h1 { font-size: 1.6em; }
+  h2 { font-size: 1.15em; margin-top: 1.8em; }
+  code { background: #f2f2f2; padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .updated { color: #666; font-size: 0.9em; }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<p class="updated">Last updated: 2026-07-14</p>
+
+<p>This privacy policy covers the <strong>Garmin CGM Watch Face</strong> Connect IQ app ("the app"), an independent, community-built project. It is not affiliated with, endorsed by, or sponsored by Garmin, Dexcom, Abbott, or the Nightscout Foundation.</p>
+
+<h2>What data the app uses</h2>
+<p>The app displays glucose readings from a <a href="https://nightscout.github.io">Nightscout</a> server that you configure yourself. To do this, you provide two pieces of information through the app's Settings (via Garmin Connect Mobile):</p>
+<ul>
+  <li><strong>Your Nightscout server URL</strong></li>
+  <li><strong>Your Nightscout API secret</strong> (hashed to SHA1 on your device before it is ever sent anywhere)</li>
+</ul>
+
+<h2>Where your data goes</h2>
+<p>Your Nightscout URL and hashed API secret are used only to make a direct HTTPS request from your Garmin watch to <em>your own</em> Nightscout server, to retrieve your glucose readings. This request goes straight from your device to your server — it does not pass through, or get stored on, any server operated by the developer of this app.</p>
+<p>Glucose readings retrieved from your Nightscout server are stored locally on your watch (using standard Garmin Connect IQ on-device storage) so the watch face can display them. This data never leaves your device except in the request to your own Nightscout server described above.</p>
+
+<h2>What the developer collects</h2>
+<p>The developer of this app does not operate any backend service, does not collect, receive, log, or have access to your Nightscout URL, API secret, glucose data, or any other personal or health information. There is no analytics, crash reporting, or advertising SDK included in the app.</p>
+
+<h2>Third parties</h2>
+<p>The only third party involved is the Nightscout server you configure yourself, which you control and host independently of this app.</p>
+
+<h2>Changes to this policy</h2>
+<p>If this policy changes, the updated version will be posted at this same URL with a revised "Last updated" date.</p>
+
+<h2>Contact</h2>
+<p>Questions about this policy can be sent to <a href="mailto:neotba@gmail.com">neotba@gmail.com</a>.</p>
+
+</body>
+</html>

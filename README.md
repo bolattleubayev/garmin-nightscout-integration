@@ -6,6 +6,14 @@ A Garmin Connect IQ watch face for the **Forerunner 970** that displays real-tim
 
 ---
 
+## Disclaimer
+
+This is an independent, community-built project. It is **not affiliated with, endorsed by, or sponsored by Garmin, Dexcom, Abbott, or the Nightscout Foundation**. It displays glucose data pulled from your own self-hosted Nightscout instance, using credentials you provide, for informational purposes only.
+
+**This app is not a medical device and is not a substitute for your primary CGM receiver or app.** Always confirm glucose readings and trends on your CGM's official display before making any treatment decision, including insulin dosing. Displayed data may be delayed, stale, or unavailable due to network, server, or sensor issues — use at your own risk.
+
+---
+
 ## Features
 
 - Real-time CGM glucose value (mmol/L) with color coding — green (in range), red (low), yellow (high)
@@ -54,31 +62,16 @@ Store the key somewhere safe — if you lose it you cannot update a watch app si
 
 ## 3. Configure Your Nightscout URL
 
-Open `source/SimpleWatchFace.mc` and find lines 33–37:
+The app no longer needs your Nightscout URL or API secret hardcoded in the source — they're configured as app Settings, in plain text, from the Garmin Connect Mobile app (or the ConnectIQ simulator's own settings menu when testing on your Mac).
 
-```java
-"https://YOUR_NIGHTSCOUT_APP.herokuapp.com/api/v1/entries/sgv.json",
-{
-    "find[date][$gte]" => oneHourAgoMs,
-    "count" => 13,
-    "token" => "YOUR_NIGHTSCOUT_SHA1_SECRET"
-},
-```
+- **Nightscout URL** — your Nightscout hostname, e.g. `https://mysite.herokuapp.com` (no trailing slash, no `/api/v1/...` suffix — the app appends that itself)
+- **Nightscout API Secret** — your plain-text API secret. The app hashes it to SHA1 at request time on-device, so you never need to run `shasum` yourself.
 
-Replace the two placeholders:
+**In the simulator:** with the app running, open the ConnectIQ simulator window → **Settings** menu → set both fields → the next background fetch (within 5 minutes) picks them up.
 
-| Placeholder | What to put there |
-|---|---|
-| `YOUR_NIGHTSCOUT_APP.herokuapp.com` | Your Nightscout hostname (e.g. `mysite.herokuapp.com`) |
-| `YOUR_NIGHTSCOUT_SHA1_SECRET` | SHA1 hash of your Nightscout API secret |
+**On the watch:** install the app via Connect IQ Store or sideload, then in Garmin Connect Mobile go to **Watch Face settings** for this app and fill in both fields the same way.
 
-**To get the SHA1 hash of your Nightscout secret:**
-
-```bash
-echo -n "your_api_secret" | shasum
-```
-
-Copy the 40-character hex string (without the trailing `  -`) and paste it as the token value.
+If either field is left blank, the background service skips the fetch instead of making a malformed request.
 
 ---
 
