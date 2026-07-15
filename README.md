@@ -1,4 +1,4 @@
-# Garmin CGM Watch Face
+# Sattiv
 
 A Garmin Connect IQ watch face for the **Forerunner 970** that displays real-time continuous glucose monitor (CGM) readings from a Nightscout server alongside time, date, heart rate, steps, and battery.
 

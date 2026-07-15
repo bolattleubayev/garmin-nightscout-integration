@@ -108,10 +108,10 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
     const COLOR_TEXT_TERTIARY = 0x666666;  // unit labels, date, battery %, "min ago", plot labels
     const COLOR_GRID_LINE = 0x333333;      // plot grid/tick lines
 
-    const COLOR_GOOD = 0x3DDC84;     // muted green — in range / battery ok
+    const COLOR_GOOD = 0x4CAF50;     // muted green — in range / battery ok
     const COLOR_HIGH = 0xFFB300;     // muted amber — high / battery mid
     const COLOR_LOW = 0xE84C3D;      // muted red — low / battery critical
-    const COLOR_GOOD_DIM = 0x1A4D2E;
+    const COLOR_GOOD_DIM = 0x1E4620;
     const COLOR_HIGH_DIM = 0x664400;
     const COLOR_LOW_DIM = 0x662018;
 
@@ -187,7 +187,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var steps = actMonInfo != null ? actMonInfo.steps : null;
         dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(xSteps, yTime - 8, Graphics.FONT_XTINY,
-            steps != null ? formatThousands(steps) : "--",
+            steps != null ? steps.toString() : "--",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.setColor(COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(xSteps, yTime + 14, Graphics.FONT_XTINY, "steps",
@@ -440,7 +440,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             if (yRatio > 1.0f) { yRatio = 1.0f; }
             var y = plotBottom - (yRatio * plotHeight).toNumber();
             dc.setColor(glucoseColorDim(val), Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(x, y, 5);
+            dc.fillCircle(x, y, 7);
             lastDotX = x;
             lastDotY = y;
             lastDotColor = glucoseColor(val);
@@ -448,29 +448,17 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
 
         if (lastDotX >= 0) {
             dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(lastDotX, lastDotY, 9);
+            dc.fillCircle(lastDotX, lastDotY, 11);
             dc.setColor(lastDotColor, Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(lastDotX, lastDotY, 5);
+            dc.fillCircle(lastDotX, lastDotY, 7);
             dc.setColor(lastDotColor, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(3);
+            dc.drawCircle(lastDotX, lastDotY, 10);
             dc.setPenWidth(1);
-            dc.drawCircle(lastDotX, lastDotY, 8);
         }
 
         drawLeftLabel(dc, mmolMax.format("%.1f"), maxX, plotTop + 7);
         drawLeftLabel(dc, mmolMin.format("%.1f"), minX, plotBottom - 7);
-    }
-
-    hidden function formatThousands(n as Lang.Number) as Lang.String {
-        var s = n.toString();
-        var len = s.length();
-        var result = "";
-        for (var i = 0; i < len; i++) {
-            if (i > 0 && (len - i) % 3 == 0) {
-                result += ",";
-            }
-            result += s.substring(i, i + 1);
-        }
-        return result;
     }
 
     hidden function circleInnerLeftX(cx as Lang.Number, cy as Lang.Number, r as Lang.Number, y as Lang.Number, innerMargin as Lang.Number) as Lang.Number {

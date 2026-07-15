@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <strings>
-    <string id="AppName">SimpleFace</string>
+    <string id="AppName">Sattiv</string>
     <string id="SettingNightscoutUrlTitle">Nightscout URL</string>
     <string id="SettingNightscoutSecretTitle">Nightscout API Secret</string>
 </strings>
