@@ -18,7 +18,6 @@
         <iq:languages>
             <iq:language>en</iq:language>
             <iq:language>eng</iq:language>
-            <iq:language>rus</iq:language>
         </iq:languages>
         <iq:permissions>
             <iq:uses-permission id="Background"/>
