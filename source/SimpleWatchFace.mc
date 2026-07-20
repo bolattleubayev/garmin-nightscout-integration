@@ -197,59 +197,108 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var history = Application.Storage.getValue("cgmHistory") as Lang.Array?;
         var timestamps = Application.Storage.getValue("cgmTimestamps") as Lang.Array?;
         var dateMs = Application.Storage.getValue("cgmDate") as Lang.Long?;
-
-        if (history != null && history.size() > 0 && dateMs != null) {
-            drawScatterPlot(dc, history, timestamps, w, h, dateMs);
-        }
-
-        // CGM value + trend (bottom)
-        var yCgm = 373;
         var mmol = Application.Storage.getValue("cgmMmol") as Lang.Float?;
-        if (mmol != null && dateMs != null) {
-            var minsAgo = ((Time.now().value() - dateMs.toLong() / 1000l) / 60).toNumber();
 
-            var trend = null;
-            var delta = null;
-            if (history != null && timestamps != null && history.size() > 0) {
-                var slope = computeTrendSlope(history, timestamps);
-                if (slope != null) { trend = slopeToTrend(slope); }
-                delta = computeDelta15(history, timestamps, mmol);
+        var showChartProp = Application.Properties.getValue("ShowChart");
+        var showChart = !(showChartProp instanceof Lang.Boolean) || (showChartProp as Lang.Boolean);
+
+        if (showChart) {
+            if (history != null && history.size() > 0 && dateMs != null) {
+                drawScatterPlot(dc, history, timestamps, w, h, dateMs);
             }
-
-            var valueText = mmol.format("%.1f");
-            var cgmColor = glucoseColor(mmol);
-            dc.setColor(cgmColor, Graphics.COLOR_TRANSPARENT);
-            if (trend != null) {
-                var valueW = dc.getTextWidthInPixels(valueText, Graphics.FONT_NUMBER_MILD);
-                var arrowW = 34;
-                var gap = 10;
-                var groupLeft = cx - (valueW + gap + arrowW) / 2;
-                var arrowCx = groupLeft + valueW + gap + arrowW / 2;
-                dc.drawText(groupLeft, yCgm, Graphics.FONT_NUMBER_MILD, valueText,
-                    Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
-                // Arrow+delta are stacked as one unit and re-centered as a pair on yCgm,
-                // so together they align with the glucose value's vertical center instead
-                // of the arrow alone sitting on yCgm and the delta trailing further down.
-                drawTrendArrow(dc, trend as Lang.Number, arrowCx, yCgm - 10, cgmColor, 0.85f);
-                if (delta != null) {
-                    var deltaText = ((delta as Lang.Float) >= 0.0f ? "+" : "") + (delta as Lang.Float).format("%.1f");
-                    dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
-                    dc.drawText(arrowCx, yCgm + 17, Graphics.FONT_XTINY, deltaText,
-                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-                }
+            // CGM value + trend (bottom)
+            var yCgm = 373;
+            if (mmol != null && dateMs != null) {
+                drawCgmBlock(dc, cx, yCgm, mmol, dateMs, history, timestamps,
+                    Graphics.FONT_NUMBER_MILD, 0.85f, 6,
+                    Graphics.FONT_XTINY, 47);
             } else {
-                dc.drawText(cx, yCgm, Graphics.FONT_NUMBER_MILD, valueText,
+                dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, yCgm, Graphics.FONT_NUMBER_MILD, "--",
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             }
-
-            dc.setColor(COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, yCgm + 46, Graphics.FONT_XTINY, minsAgo + " min ago",
-                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else {
-            dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, yCgm, Graphics.FONT_NUMBER_MILD, "--",
+            // Value-only mode: one large readout filling the space the chart +
+            // compact value block would otherwise occupy (y~178-419), pulled up
+            // close under the time/steps row rather than centered in that span.
+            var yBig = 272;
+            if (mmol != null && dateMs != null) {
+                drawCgmBlock(dc, cx, yBig, mmol, dateMs, history, timestamps,
+                    Graphics.FONT_NUMBER_THAI_HOT, 1.5f, 12,
+                    Graphics.FONT_MEDIUM, 96);
+            } else {
+                dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, yBig, Graphics.FONT_NUMBER_THAI_HOT, "--",
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
+        }
+    }
+
+    // Draws glucose value + trend arrow + delta + "X min ago", vertically centered
+    // on yValue. Arrow+delta placement is derived from actual font/glyph metrics
+    // (not fixed pixel offsets) so the pair stays centered on and bounded by the
+    // value's own height at any font size — same logic serves both the compact
+    // chart-mode readout and the large value-only-mode readout.
+    hidden function drawCgmBlock(dc as Graphics.Dc, cx as Lang.Number, yValue as Lang.Number,
+            mmol as Lang.Float, dateMs as Lang.Long, history as Lang.Array?, timestamps as Lang.Array?,
+            valueFont as Graphics.FontType, arrowScale as Lang.Float, arrowGap as Lang.Number,
+            labelFont as Graphics.FontType, minAgoYOffset as Lang.Number) as Void {
+        var minsAgo = ((Time.now().value() - dateMs.toLong() / 1000l) / 60).toNumber();
+
+        var trend = null;
+        var delta = null;
+        if (history != null && timestamps != null && history.size() > 0) {
+            var slope = computeTrendSlope(history, timestamps);
+            if (slope != null) { trend = slopeToTrend(slope); }
+            delta = computeDelta15(history, timestamps, mmol);
+        }
+
+        var valueText = mmol.format("%.1f");
+        var cgmColor = glucoseColor(mmol);
+        dc.setColor(cgmColor, Graphics.COLOR_TRANSPARENT);
+        if (trend != null) {
+            var valueW = dc.getTextWidthInPixels(valueText, valueFont);
+            var arrowW = (34 * arrowScale).toNumber();
+            var deltaText = "";
+            var colW = arrowW;
+            if (delta != null) {
+                deltaText = ((delta as Lang.Float) >= 0.0f ? "+" : "") + (delta as Lang.Float).format("%.1f");
+                var deltaW = dc.getTextWidthInPixels(deltaText, labelFont);
+                // The column is sized by whichever is wider — the arrow glyph or the
+                // delta text — so neither one crowds into the value's digits.
+                if (deltaW > colW) { colW = deltaW; }
+            }
+            var groupLeft = cx - (valueW + arrowGap + colW) / 2;
+            var arrowCx = groupLeft + valueW + arrowGap + colW / 2;
+            dc.drawText(groupLeft, yValue, valueFont, valueText,
+                Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+            // drawTrendArrow's tallest glyphs (up/down) span roughly ±21*scale from
+            // their center — used as the arrow's half-height for stacking below.
+            var arrowHalfH = (21 * arrowScale).toNumber();
+            if (delta != null) {
+                var labelFontHeight = dc.getFontHeight(labelFont);
+                var stackGap = (labelFontHeight * 0.15).toNumber();
+                var stackHeight = arrowHalfH * 2 + stackGap + labelFontHeight;
+                var stackTop = yValue - stackHeight / 2;
+                var arrowCy = stackTop + arrowHalfH;
+                var deltaCy = stackTop + arrowHalfH * 2 + stackGap + labelFontHeight / 2;
+                drawTrendArrow(dc, trend as Lang.Number, arrowCx, arrowCy, cgmColor, arrowScale);
+                dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(arrowCx, deltaCy, labelFont, deltaText,
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            } else {
+                drawTrendArrow(dc, trend as Lang.Number, arrowCx, yValue, cgmColor, arrowScale);
+            }
+        } else {
+            dc.drawText(cx, yValue, valueFont, valueText,
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
+
+        // Stale data (>20 min old) is flagged in the same red used for low glucose,
+        // so a silently-dead Nightscout connection reads as an alert, not a footnote.
+        dc.setColor(minsAgo > 20 ? COLOR_LOW : COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, yValue + minAgoYOffset, labelFont, minsAgo + " min ago",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     // OLS slope in mmol/L per minute. Single-pass O(n), O(1) space.
