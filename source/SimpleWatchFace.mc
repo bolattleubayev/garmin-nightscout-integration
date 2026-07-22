@@ -232,7 +232,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var clockTime = System.getClockTime();
         var timeText = clockTime.hour.format("%02d") + ":" + clockTime.min.format("%02d");
         var yTime = scalePx(133, scale);
-        var xTime = langMode != 0 ? cx - scalePx(8, scale) : cx;
+        var xTime = langMode != 0 ? cx - scalePx(14, scale) : cx;
         dc.setColor(COLOR_TEXT_PRIMARY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(xTime, yTime, Graphics.FONT_NUMBER_MILD, timeText,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
