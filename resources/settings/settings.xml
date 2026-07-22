@@ -9,4 +9,11 @@
     <setting propertyKey="@Properties.ShowChart" title="@Strings.SettingShowChartTitle">
         <settingConfig type="boolean"/>
     </setting>
+    <setting propertyKey="@Properties.Language" title="@Strings.SettingLanguageTitle">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.LanguageEnglish</listEntry>
+            <listEntry value="1">@Strings.LanguageKazakh</listEntry>
+            <listEntry value="2">@Strings.LanguageKazakhLatin</listEntry>
+        </settingConfig>
+    </setting>
 </settings>

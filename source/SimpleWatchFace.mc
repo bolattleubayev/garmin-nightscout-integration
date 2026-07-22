@@ -115,7 +115,70 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
     const COLOR_HIGH_DIM = 0x664400;
     const COLOR_LOW_DIM = 0x662018;
 
+    // All layout coordinates below were tuned by eye against the fr970's 454x454
+    // screen. Other devices (e.g. fenix 6 at 240-280px) get the same layout
+    // proportionally scaled via `scale = screenWidth / REF_SCREEN_SIZE` — see
+    // scalePx/scalePen. Fonts are NOT scaled: Toybox system fonts already ship
+    // device-appropriate absolute pixel sizes, so symbolic font constants
+    // (FONT_XTINY, FONT_NUMBER_MILD, ...) are used as-is on every device.
+    const REF_SCREEN_SIZE = 454.0f;
+
+    // On-watch text has no native Garmin locale to hang off (Kazakh isn't a
+    // selectable device/Companion App system language, so an iq:language +
+    // resources-kaz strings.xml would never be picked automatically — see
+    // memory/commit history for the same issue with Russian). Instead this is
+    // a manual "Language" app Setting (0=English, 1=Kazakh Cyrillic, 2=Kazakh
+    // Latin; see properties.xml) and these tables are indexed by langMode
+    // (from getLangMode()) at draw time.
+    // NOTE: Kazakh strings below are a best-effort machine translation, not
+    // reviewed by a native speaker — verify before shipping. The Latin column
+    // follows the 2021 Qazaq Latin orthography (ä, ğ, ñ, ö, q, ş, ū, ü) as I
+    // understand it; Kazakhstan's Latin spelling has changed more than once,
+    // so this is the part most likely to need a native-speaker correction.
+    const DAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const DAYS_KK = ["Жс", "Дс", "Сс", "Ср", "Бс", "Жм", "Сб"];
+    const DAYS_KK_LATIN = ["Js", "Ds", "Ss", "Sr", "Bs", "Jm", "Sb"];
+    const DAYS_BY_LANG = [DAYS_EN, DAYS_KK, DAYS_KK_LATIN];
+
+    const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const MONTHS_KK = ["Қаң", "Ақп", "Нау", "Сәу", "Мам", "Мау",
+                       "Шіл", "Там", "Қыр", "Қаз", "Қар", "Жел"];
+    const MONTHS_KK_LATIN = ["Qañ", "Aqp", "Nau", "Säu", "Mam", "Mau",
+                       "Şil", "Tam", "Qyr", "Qaz", "Qar", "Jel"];
+    const MONTHS_BY_LANG = [MONTHS_EN, MONTHS_KK, MONTHS_KK_LATIN];
+
+    const TICK_LABELS_EN = ["-45m", "-30m", "-15m"];
+    const TICK_LABELS_KK = ["-45м", "-30м", "-15м"];
+    // Latin "min" abbreviates to the same single letter as English, so this
+    // matches TICK_LABELS_EN exactly — kept as its own named constant anyway
+    // so a future edit to one doesn't have to remember they're aliased.
+    const TICK_LABELS_KK_LATIN = ["-45m", "-30m", "-15m"];
+    const TICK_LABELS_BY_LANG = [TICK_LABELS_EN, TICK_LABELS_KK, TICK_LABELS_KK_LATIN];
+
+    const BPM_LABELS = ["bpm", "соқ", "soq"];
+    const STEPS_LABELS = ["steps", "қадам", "qadam"];
+    const MIN_AGO_LABELS = [" min ago", " мин бұрын", " min buryn"];
+
     function initialize() { WatchFace.initialize(); }
+
+    // 0=English (default/fallback), 1=Kazakh Cyrillic, 2=Kazakh Latin.
+    hidden function getLangMode() as Lang.Number {
+        var lang = Application.Properties.getValue("Language");
+        if (!(lang instanceof Lang.Number) || lang < 0 || lang > 2) { return 0; }
+        return lang;
+    }
+
+    hidden function scalePx(v as Lang.Number, scale as Lang.Float) as Lang.Number {
+        return (v * scale).toNumber();
+    }
+
+    // Like scalePx but floors at 1 so stroke widths/corner radii never vanish
+    // on much smaller screens.
+    hidden function scalePen(v as Lang.Number, scale as Lang.Float) as Lang.Number {
+        var result = (v * scale).toNumber();
+        return result < 1 ? 1 : result;
+    }
 
     function onUpdate(dc as Graphics.Dc) as Void {
         var w = dc.getWidth();
@@ -123,48 +186,52 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var cx = w / 2;
         var cy = h / 2;
         var r = cx - 3;
+        var scale = w.toFloat() / REF_SCREEN_SIZE;
 
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
         // Battery (top center)
         var battery = System.getSystemStats().battery.toNumber();
-        var batBodyW = 36; var batBodyH = 18; var batTipW = 5; var batTipH = 11;
+        var batBodyW = scalePx(36, scale); var batBodyH = scalePx(18, scale);
+        var batTipW = scalePx(5, scale); var batTipH = scalePx(11, scale);
         var batText = battery + "%";
         var batTextW = dc.getTextWidthInPixels(batText, Graphics.FONT_XTINY);
-        var batGap = 7;
+        var batGap = scalePx(7, scale);
         var batGroupX = cx - (batBodyW + batTipW + batGap + batTextW) / 2;
         var batX = batGroupX;
-        var batY = 38 - batBodyH / 2;
-        var batR = 3;
+        var batYCenter = scalePx(38, scale);
+        var batY = batYCenter - batBodyH / 2;
+        var batR = scalePx(3, scale);
         var batFillColor = battery <= 20 ? COLOR_LOW : (battery <= 50 ? COLOR_HIGH : COLOR_GOOD);
         dc.setColor(batFillColor, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(2);
+        dc.setPenWidth(scalePen(2, scale));
         dc.drawRoundedRectangle(batX, batY, batBodyW, batBodyH, batR);
-        dc.fillRoundedRectangle(batX + batBodyW, batY + (batBodyH - batTipH) / 2, batTipW, batTipH, 2);
+        dc.fillRoundedRectangle(batX + batBodyW, batY + (batBodyH - batTipH) / 2, batTipW, batTipH, scalePx(2, scale));
         dc.setPenWidth(1);
-        var batFillW = ((batBodyW - 6) * battery / 100).toNumber();
+        var batBorder = scalePx(3, scale);
+        var batFillW = ((batBodyW - batBorder * 2) * battery / 100).toNumber();
         if (batFillW > 0) {
-            dc.fillRoundedRectangle(batX + 3, batY + 3, batFillW, batBodyH - 6, batR - 1);
+            dc.fillRoundedRectangle(batX + batBorder, batY + batBorder, batFillW, batBodyH - batBorder * 2, batR - 1);
         }
         dc.setColor(COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(batGroupX + batBodyW + batTipW + batGap, 38, Graphics.FONT_XTINY, batText,
+        dc.drawText(batGroupX + batBodyW + batTipW + batGap, batYCenter, Graphics.FONT_XTINY, batText,
             Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // Date
+        var langMode = getLangMode();
         var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
-        var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        var days = DAYS_BY_LANG[langMode];
+        var months = MONTHS_BY_LANG[langMode];
         dc.setColor(COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, 66, Graphics.FONT_XTINY,
+        dc.drawText(cx, scalePx(66, scale), Graphics.FONT_XTINY,
             days[info.day_of_week - 1] + " " + info.day + " " + months[info.month - 1],
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // Time (center)
         var clockTime = System.getClockTime();
         var timeText = clockTime.hour.format("%02d") + ":" + clockTime.min.format("%02d");
-        var yTime = 133;
+        var yTime = scalePx(133, scale);
         dc.setColor(COLOR_TEXT_PRIMARY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, yTime, Graphics.FONT_NUMBER_MILD, timeText,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
@@ -172,25 +239,27 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         // Heart rate (left of time)
         var actInfo = Activity.getActivityInfo();
         var hr = actInfo != null ? actInfo.currentHeartRate : null;
-        var xHr = 87;
+        var xHr = scalePx(87, scale);
+        var hrLabelOffset = scalePx(8, scale);
+        var hrUnitOffset = scalePx(14, scale);
         dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(xHr, yTime - 8, Graphics.FONT_XTINY,
+        dc.drawText(xHr, yTime - hrLabelOffset, Graphics.FONT_XTINY,
             hr != null ? hr.toString() : "--",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.setColor(COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(xHr, yTime + 14, Graphics.FONT_XTINY, "bpm",
+        dc.drawText(xHr, yTime + hrUnitOffset, Graphics.FONT_XTINY, BPM_LABELS[langMode],
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // Steps (right of time)
-        var xSteps = w - 87;
+        var xSteps = w - scalePx(87, scale);
         var actMonInfo = ActivityMonitor.getInfo();
         var steps = actMonInfo != null ? actMonInfo.steps : null;
         dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(xSteps, yTime - 8, Graphics.FONT_XTINY,
+        dc.drawText(xSteps, yTime - hrLabelOffset, Graphics.FONT_XTINY,
             steps != null ? steps.toString() : "--",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.setColor(COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(xSteps, yTime + 14, Graphics.FONT_XTINY, "steps",
+        dc.drawText(xSteps, yTime + hrUnitOffset, Graphics.FONT_XTINY, STEPS_LABELS[langMode],
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // CGM data
@@ -204,14 +273,15 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
 
         if (showChart) {
             if (history != null && history.size() > 0 && dateMs != null) {
-                drawScatterPlot(dc, history, timestamps, w, h, dateMs);
+                drawScatterPlot(dc, history, timestamps, w, h, dateMs, scale, langMode);
             }
             // CGM value + trend (bottom)
-            var yCgm = 373;
+            var yCgm = scalePx(373, scale);
             if (mmol != null && dateMs != null) {
-                drawCgmBlock(dc, cx, yCgm, mmol, dateMs, history, timestamps,
-                    Graphics.FONT_NUMBER_MILD, 0.85f, 6,
-                    Graphics.FONT_XTINY, 47);
+                drawCgmBlock(dc, cx, yCgm, mmol, dateMs, history, timestamps, {
+                    :valueFont => Graphics.FONT_NUMBER_MILD, :arrowScale => 0.85f * scale, :arrowGap => scalePx(6, scale),
+                    :labelFont => Graphics.FONT_XTINY, :minAgoYOffset => scalePx(47, scale), :langMode => langMode
+                });
             } else {
                 dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
                 dc.drawText(cx, yCgm, Graphics.FONT_NUMBER_MILD, "--",
@@ -221,11 +291,12 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             // Value-only mode: one large readout filling the space the chart +
             // compact value block would otherwise occupy (y~178-419), pulled up
             // close under the time/steps row rather than centered in that span.
-            var yBig = 272;
+            var yBig = scalePx(272, scale);
             if (mmol != null && dateMs != null) {
-                drawCgmBlock(dc, cx, yBig, mmol, dateMs, history, timestamps,
-                    Graphics.FONT_NUMBER_THAI_HOT, 1.5f, 12,
-                    Graphics.FONT_MEDIUM, 96);
+                drawCgmBlock(dc, cx, yBig, mmol, dateMs, history, timestamps, {
+                    :valueFont => Graphics.FONT_NUMBER_THAI_HOT, :arrowScale => 1.5f * scale, :arrowGap => scalePx(12, scale),
+                    :labelFont => Graphics.FONT_MEDIUM, :minAgoYOffset => scalePx(96, scale), :langMode => langMode
+                });
             } else {
                 dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
                 dc.drawText(cx, yBig, Graphics.FONT_NUMBER_THAI_HOT, "--",
@@ -239,10 +310,18 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
     // (not fixed pixel offsets) so the pair stays centered on and bounded by the
     // value's own height at any font size — same logic serves both the compact
     // chart-mode readout and the large value-only-mode readout.
+    // `style` keys: :valueFont, :arrowScale, :arrowGap, :labelFont, :minAgoYOffset, :langMode —
+    // bundled into a Dictionary because some devices (e.g. fenix 6, older VM) cap
+    // function calls at 9 arguments; passing the params separately blew past that.
     hidden function drawCgmBlock(dc as Graphics.Dc, cx as Lang.Number, yValue as Lang.Number,
             mmol as Lang.Float, dateMs as Lang.Long, history as Lang.Array?, timestamps as Lang.Array?,
-            valueFont as Graphics.FontType, arrowScale as Lang.Float, arrowGap as Lang.Number,
-            labelFont as Graphics.FontType, minAgoYOffset as Lang.Number) as Void {
+            style as Lang.Dictionary) as Void {
+        var valueFont = style[:valueFont] as Graphics.FontType;
+        var arrowScale = style[:arrowScale] as Lang.Float;
+        var arrowGap = style[:arrowGap] as Lang.Number;
+        var labelFont = style[:labelFont] as Graphics.FontType;
+        var minAgoYOffset = style[:minAgoYOffset] as Lang.Number;
+        var langMode = style[:langMode] as Lang.Number;
         var minsAgo = ((Time.now().value() - dateMs.toLong() / 1000l) / 60).toNumber();
 
         var trend = null;
@@ -297,7 +376,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         // Stale data (>20 min old) is flagged in the same red used for low glucose,
         // so a silently-dead Nightscout connection reads as an alert, not a footnote.
         dc.setColor(minsAgo > 20 ? COLOR_LOW : COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, yValue + minAgoYOffset, labelFont, minsAgo + " min ago",
+        dc.drawText(cx, yValue + minAgoYOffset, labelFont, minsAgo + MIN_AGO_LABELS[langMode],
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
@@ -416,15 +495,15 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         dc.setPenWidth(1);
     }
 
-    hidden function drawScatterPlot(dc as Graphics.Dc, history as Lang.Array, timestamps as Lang.Array?, w as Lang.Number, h as Lang.Number, latestDateMs as Lang.Long) as Void {
+    hidden function drawScatterPlot(dc as Graphics.Dc, history as Lang.Array, timestamps as Lang.Array?, w as Lang.Number, h as Lang.Number, latestDateMs as Lang.Long, scale as Lang.Float, langMode as Lang.Number) as Void {
         var cx = w / 2;
         var cy = h / 2;
         var r = cx - 3;
-        var plotBottom = 308;
-        var plotTop = 178;
+        var plotBottom = scalePx(308, scale);
+        var plotTop = scalePx(178, scale);
         // plotBottom is farther from screen center than plotTop, so it's the tightest row —
         // basing the margin on it keeps both plot edges as close to the circle as safely possible
-        var margin = circleInnerLeftX(cx, cy, r, plotBottom, 6);
+        var margin = circleInnerLeftX(cx, cy, r, plotBottom, scalePx(6, scale));
         var plotHeight = plotBottom - plotTop;
         var plotWidth = w - 2 * margin;
         var count = history.size();
@@ -450,22 +529,25 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var yMin = plotBottom - ((mmolMin - loVal) / valRange * plotHeight).toNumber();
 
         // Start lines after the left-side labels so they don't overlap
-        var maxX = circleInnerLeftX(cx, cy, r, plotTop + 7, 5);
-        var minX = circleInnerLeftX(cx, cy, r, plotBottom - 7, 5);
+        var labelPad = scalePx(7, scale);
+        var lineGap = scalePx(5, scale);
+        var maxX = circleInnerLeftX(cx, cy, r, plotTop + labelPad, lineGap);
+        var minX = circleInnerLeftX(cx, cy, r, plotBottom - labelPad, lineGap);
         var maxLabelW = dc.getTextWidthInPixels(mmolMax.format("%.1f"), Graphics.FONT_XTINY);
         var minLabelW = dc.getTextWidthInPixels(mmolMin.format("%.1f"), Graphics.FONT_XTINY);
         dc.setColor(COLOR_GRID_LINE, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(maxX + maxLabelW + 5, yMax, margin + plotWidth, yMax);
-        dc.drawLine(minX + minLabelW + 5, yMin, margin + plotWidth, yMin);
+        dc.drawLine(maxX + maxLabelW + lineGap, yMax, margin + plotWidth, yMax);
+        dc.drawLine(minX + minLabelW + lineGap, yMin, margin + plotWidth, yMin);
 
         var tickMins = [45, 30, 15];
-        var tickLabels = ["-45m", "-30m", "-15m"];
+        var tickLabels = TICK_LABELS_BY_LANG[langMode];
+        var tickLabelOffset = scalePx(14, scale);
         for (var t = 0; t < 3; t++) {
             var xTick = margin + ((1.0f - tickMins[t] * 60.0f / windowSecs.toFloat()) * plotWidth).toNumber();
             dc.setColor(COLOR_GRID_LINE, Graphics.COLOR_TRANSPARENT);
             dc.drawLine(xTick, plotTop, xTick, plotBottom);
             dc.setColor(COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(xTick, plotBottom + 14, Graphics.FONT_XTINY, tickLabels[t],
+            dc.drawText(xTick, plotBottom + tickLabelOffset, Graphics.FONT_XTINY, tickLabels[t],
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
 
@@ -489,7 +571,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             if (yRatio > 1.0f) { yRatio = 1.0f; }
             var y = plotBottom - (yRatio * plotHeight).toNumber();
             dc.setColor(glucoseColorDim(val), Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(x, y, 7);
+            dc.fillCircle(x, y, scalePx(7, scale));
             lastDotX = x;
             lastDotY = y;
             lastDotColor = glucoseColor(val);
@@ -497,17 +579,17 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
 
         if (lastDotX >= 0) {
             dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(lastDotX, lastDotY, 11);
+            dc.fillCircle(lastDotX, lastDotY, scalePx(11, scale));
             dc.setColor(lastDotColor, Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(lastDotX, lastDotY, 7);
+            dc.fillCircle(lastDotX, lastDotY, scalePx(7, scale));
             dc.setColor(lastDotColor, Graphics.COLOR_TRANSPARENT);
-            dc.setPenWidth(3);
-            dc.drawCircle(lastDotX, lastDotY, 10);
+            dc.setPenWidth(scalePen(3, scale));
+            dc.drawCircle(lastDotX, lastDotY, scalePx(10, scale));
             dc.setPenWidth(1);
         }
 
-        drawLeftLabel(dc, mmolMax.format("%.1f"), maxX, plotTop + 7);
-        drawLeftLabel(dc, mmolMin.format("%.1f"), minX, plotBottom - 7);
+        drawLeftLabel(dc, mmolMax.format("%.1f"), maxX, plotTop + labelPad);
+        drawLeftLabel(dc, mmolMin.format("%.1f"), minX, plotBottom - labelPad);
     }
 
     hidden function circleInnerLeftX(cx as Lang.Number, cy as Lang.Number, r as Lang.Number, y as Lang.Number, innerMargin as Lang.Number) as Lang.Number {

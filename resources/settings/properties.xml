@@ -3,4 +3,5 @@
     <property id="NightscoutUrl" type="string">https://your-nightscout-site.herokuapp.com</property>
     <property id="NightscoutSecret" type="string"></property>
     <property id="ShowChart" type="boolean">true</property>
+    <property id="Language" type="number">0</property>
 </properties>
