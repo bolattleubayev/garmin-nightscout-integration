@@ -6,4 +6,9 @@
     <property id="ShowChart" type="boolean">true</property>
     <property id="Language" type="number">0</property>
     <property id="GlucoseUnit" type="number">0</property>
+    <property id="VeryLowThreshold" type="float">3.0</property>
+    <property id="LowThreshold" type="float">4.0</property>
+    <property id="HighThreshold" type="float">7.0</property>
+    <property id="VeryHighThreshold" type="float">10.0</property>
+    <property id="Use12Hour" type="boolean">false</property>
 </properties>

@@ -125,6 +125,14 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
     const COLOR_HIGH_DIM = 0x664400;
     const COLOR_LOW_DIM = 0x662018;
 
+    // Very-low/very-high are deliberately more saturated than the muted palette
+    // above — these are alarm states, not just out-of-range, so they should read
+    // as more urgent than plain LOW/HIGH at a glance.
+    const COLOR_VERY_LOW = 0xFF1744;   // vivid red
+    const COLOR_VERY_HIGH = 0xFFEB3B;  // bright yellow — distinct hue from amber HIGH
+    const COLOR_VERY_LOW_DIM = 0x4D0710;
+    const COLOR_VERY_HIGH_DIM = 0x665C00;
+
     // All layout coordinates below were tuned by eye against the fr970's 454x454
     // screen. Other devices (e.g. fenix 6 at 240-280px) get the same layout
     // proportionally scaled via `scale = screenWidth / REF_SCREEN_SIZE` — see
@@ -179,6 +187,11 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         return lang;
     }
 
+    hidden function getUse12Hour() as Lang.Boolean {
+        var v = Application.Properties.getValue("Use12Hour");
+        return (v instanceof Lang.Boolean) && (v as Lang.Boolean);
+    }
+
     // 0=mmol/L (default/fallback), 1=mg/dL. Storage/history/thresholds always stay
     // in mmol/L (see NightscoutDelegate); this only controls display formatting.
     hidden function getUnitMode() as Lang.Number {
@@ -196,6 +209,27 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var val = unitMode == 1 ? delta * 18.0f : delta;
         var text = val.format(unitMode == 1 ? "%.0f" : "%.1f");
         return (val >= 0.0f ? "+" : "") + text;
+    }
+
+    hidden function toFloatOrDefault(v, def as Lang.Float) as Lang.Float {
+        if (v instanceof Lang.Float) { return v; }
+        if (v instanceof Lang.Number) { return v.toFloat(); }
+        return def;
+    }
+
+    // Zone thresholds are always mmol/L (matches internal storage — see
+    // NightscoutDelegate) regardless of the display GlucoseUnit setting, so the
+    // color math below never needs to care which unit the user sees numbers in.
+    // Clamped into ascending order in case a user enters them out of sequence.
+    hidden function getThresholds() as Lang.Dictionary {
+        var veryLow = toFloatOrDefault(Application.Properties.getValue("VeryLowThreshold"), 3.0f);
+        var low = toFloatOrDefault(Application.Properties.getValue("LowThreshold"), 4.0f);
+        var high = toFloatOrDefault(Application.Properties.getValue("HighThreshold"), 7.0f);
+        var veryHigh = toFloatOrDefault(Application.Properties.getValue("VeryHighThreshold"), 10.0f);
+        if (low < veryLow) { low = veryLow; }
+        if (high < low) { high = low; }
+        if (veryHigh < high) { veryHigh = high; }
+        return { :veryLow => veryLow, :low => low, :high => high, :veryHigh => veryHigh };
     }
 
     hidden function scalePx(v as Lang.Number, scale as Lang.Float) as Lang.Number {
@@ -247,19 +281,33 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         dc.drawText(batGroupX + batBodyW + batTipW + batGap, batYCenter, Graphics.FONT_XTINY, batText,
             Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        // Date
+        // Date (AM/PM, when enabled, rides along on this line rather than squeezing
+        // into the clock row — the clock's own digits already reach close to the HR/steps
+        // columns at x=87/w-87 with barely any slack on either side, confirmed by measuring
+        // real pixel overlap at every shift amount tried; the date line has genuine unused
+        // horizontal room by comparison, verified safe in both English and Kazakh)
         var langMode = getLangMode();
+        var clockTime = System.getClockTime();
+        var use12Hour = getUse12Hour();
+        var ampmText = clockTime.hour < 12 ? "AM" : "PM";
         var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
         var days = DAYS_BY_LANG[langMode];
         var months = MONTHS_BY_LANG[langMode];
+        var dateText = days[info.day_of_week - 1] + " " + info.day + " " + months[info.month - 1];
+        if (use12Hour) { dateText += " " + ampmText; }
         dc.setColor(COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, scalePx(66, scale), Graphics.FONT_XTINY,
-            days[info.day_of_week - 1] + " " + info.day + " " + months[info.month - 1],
+        dc.drawText(cx, scalePx(66, scale), Graphics.FONT_XTINY, dateText,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // Time (center; nudged left for Kazakh since the longer steps label sits closer to center)
-        var clockTime = System.getClockTime();
-        var timeText = clockTime.hour.format("%02d") + ":" + clockTime.min.format("%02d");
+        var timeText;
+        if (use12Hour) {
+            var hour12 = clockTime.hour % 12;
+            if (hour12 == 0) { hour12 = 12; }
+            timeText = hour12.format("%d") + ":" + clockTime.min.format("%02d");
+        } else {
+            timeText = clockTime.hour.format("%02d") + ":" + clockTime.min.format("%02d");
+        }
         var yTime = scalePx(133, scale);
         var xTime = langMode != 0 ? cx - scalePx(14, scale) : cx;
         dc.setColor(COLOR_TEXT_PRIMARY, Graphics.COLOR_TRANSPARENT);
@@ -302,9 +350,12 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var showChart = !(showChartProp instanceof Lang.Boolean) || (showChartProp as Lang.Boolean);
 
         var unitMode = getUnitMode();
+        var thresholds = getThresholds();
         if (showChart) {
             if (history != null && history.size() > 0 && dateMs != null) {
-                drawScatterPlot(dc, history, timestamps, w, h, dateMs, scale, langMode, unitMode);
+                drawScatterPlot(dc, history, timestamps, w, h, dateMs, scale, {
+                    :langMode => langMode, :unitMode => unitMode, :thresholds => thresholds
+                });
             }
             // CGM value + trend (bottom)
             var yCgm = scalePx(373, scale);
@@ -312,7 +363,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
                 drawCgmBlock(dc, cx, yCgm, mmol, dateMs, history, timestamps, {
                     :valueFont => Graphics.FONT_NUMBER_MILD, :arrowScale => 0.85f * scale, :arrowGap => scalePx(6, scale),
                     :labelFont => Graphics.FONT_XTINY, :minAgoYOffset => scalePx(47, scale), :langMode => langMode,
-                    :unitMode => unitMode
+                    :unitMode => unitMode, :thresholds => thresholds
                 });
             } else {
                 dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
@@ -328,7 +379,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
                 drawCgmBlock(dc, cx, yBig, mmol, dateMs, history, timestamps, {
                     :valueFont => Graphics.FONT_NUMBER_THAI_HOT, :arrowScale => 1.5f * scale, :arrowGap => scalePx(12, scale),
                     :labelFont => Graphics.FONT_MEDIUM, :minAgoYOffset => scalePx(96, scale), :langMode => langMode,
-                    :unitMode => unitMode
+                    :unitMode => unitMode, :thresholds => thresholds
                 });
             } else {
                 dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
@@ -356,6 +407,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var minAgoYOffset = style[:minAgoYOffset] as Lang.Number;
         var langMode = style[:langMode] as Lang.Number;
         var unitMode = style[:unitMode] as Lang.Number;
+        var thresholds = style[:thresholds] as Lang.Dictionary;
         var minsAgo = ((Time.now().value() - dateMs.toLong() / 1000l) / 60).toNumber();
 
         var trend = null;
@@ -367,7 +419,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         }
 
         var valueText = formatGlucose(mmol, unitMode);
-        var cgmColor = glucoseColor(mmol);
+        var cgmColor = glucoseColor(mmol, thresholds);
         dc.setColor(cgmColor, Graphics.COLOR_TRANSPARENT);
         if (trend != null) {
             var valueW = dc.getTextWidthInPixels(valueText, valueFont);
@@ -541,7 +593,10 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         dc.setPenWidth(1);
     }
 
-    hidden function drawScatterPlot(dc as Graphics.Dc, history as Lang.Array, timestamps as Lang.Array?, w as Lang.Number, h as Lang.Number, latestDateMs as Lang.Long, scale as Lang.Float, langMode as Lang.Number, unitMode as Lang.Number) as Void {
+    hidden function drawScatterPlot(dc as Graphics.Dc, history as Lang.Array, timestamps as Lang.Array?, w as Lang.Number, h as Lang.Number, latestDateMs as Lang.Long, scale as Lang.Float, style as Lang.Dictionary) as Void {
+        var langMode = style[:langMode] as Lang.Number;
+        var unitMode = style[:unitMode] as Lang.Number;
+        var thresholds = style[:thresholds] as Lang.Dictionary;
         var cx = w / 2;
         var cy = h / 2;
         var r = cx - 3;
@@ -616,11 +671,11 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             if (yRatio < 0.0f) { yRatio = 0.0f; }
             if (yRatio > 1.0f) { yRatio = 1.0f; }
             var y = plotBottom - (yRatio * plotHeight).toNumber();
-            dc.setColor(glucoseColorDim(val), Graphics.COLOR_TRANSPARENT);
+            dc.setColor(glucoseColorDim(val, thresholds), Graphics.COLOR_TRANSPARENT);
             dc.fillCircle(x, y, scalePx(7, scale));
             lastDotX = x;
             lastDotY = y;
-            lastDotColor = glucoseColor(val);
+            lastDotColor = glucoseColor(val, thresholds);
         }
 
         if (lastDotX >= 0) {
@@ -658,15 +713,19 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    hidden function glucoseColor(mmol as Lang.Float) as Graphics.ColorType {
-        if (mmol < 4.0f) { return COLOR_LOW; }
-        if (mmol > 7.0f) { return COLOR_HIGH; }
+    hidden function glucoseColor(mmol as Lang.Float, thresholds as Lang.Dictionary) as Graphics.ColorType {
+        if (mmol < (thresholds[:veryLow] as Lang.Float)) { return COLOR_VERY_LOW; }
+        if (mmol < (thresholds[:low] as Lang.Float)) { return COLOR_LOW; }
+        if (mmol > (thresholds[:veryHigh] as Lang.Float)) { return COLOR_VERY_HIGH; }
+        if (mmol > (thresholds[:high] as Lang.Float)) { return COLOR_HIGH; }
         return COLOR_GOOD;
     }
 
-    hidden function glucoseColorDim(mmol as Lang.Float) as Graphics.ColorType {
-        if (mmol < 4.0f) { return COLOR_LOW_DIM; }
-        if (mmol > 7.0f) { return COLOR_HIGH_DIM; }
+    hidden function glucoseColorDim(mmol as Lang.Float, thresholds as Lang.Dictionary) as Graphics.ColorType {
+        if (mmol < (thresholds[:veryLow] as Lang.Float)) { return COLOR_VERY_LOW_DIM; }
+        if (mmol < (thresholds[:low] as Lang.Float)) { return COLOR_LOW_DIM; }
+        if (mmol > (thresholds[:veryHigh] as Lang.Float)) { return COLOR_VERY_HIGH_DIM; }
+        if (mmol > (thresholds[:high] as Lang.Float)) { return COLOR_HIGH_DIM; }
         return COLOR_GOOD_DIM;
     }
 }

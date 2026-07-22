@@ -25,4 +25,19 @@
             <listEntry value="1">@Strings.UnitMgdl</listEntry>
         </settingConfig>
     </setting>
+    <setting propertyKey="@Properties.VeryLowThreshold" title="@Strings.SettingVeryLowThresholdTitle">
+        <settingConfig type="numeric" min="1.0" max="6.0"/>
+    </setting>
+    <setting propertyKey="@Properties.LowThreshold" title="@Strings.SettingLowThresholdTitle">
+        <settingConfig type="numeric" min="2.0" max="8.0"/>
+    </setting>
+    <setting propertyKey="@Properties.HighThreshold" title="@Strings.SettingHighThresholdTitle">
+        <settingConfig type="numeric" min="5.0" max="15.0"/>
+    </setting>
+    <setting propertyKey="@Properties.VeryHighThreshold" title="@Strings.SettingVeryHighThresholdTitle">
+        <settingConfig type="numeric" min="6.0" max="25.0"/>
+    </setting>
+    <setting propertyKey="@Properties.Use12Hour" title="@Strings.SettingUse12HourTitle">
+        <settingConfig type="boolean"/>
+    </setting>
 </settings>

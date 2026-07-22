@@ -12,4 +12,9 @@
     <string id="SettingGlucoseUnitTitle">Glucose unit</string>
     <string id="UnitMmol">mmol/L</string>
     <string id="UnitMgdl">mg/dL</string>
+    <string id="SettingVeryLowThresholdTitle">Very low threshold (mmol/L) — e.g. 3.0 × 18 ≈ 54 mg/dL</string>
+    <string id="SettingLowThresholdTitle">Low threshold (mmol/L) — e.g. 4.0 × 18 ≈ 72 mg/dL</string>
+    <string id="SettingHighThresholdTitle">High threshold (mmol/L) — e.g. 7.0 × 18 ≈ 126 mg/dL</string>
+    <string id="SettingVeryHighThresholdTitle">Very high threshold (mmol/L) — e.g. 10.0 × 18 ≈ 180 mg/dL</string>
+    <string id="SettingUse12HourTitle">Use 12-hour time</string>
 </strings>
