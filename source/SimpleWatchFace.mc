@@ -377,7 +377,19 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         // Stale data (>20 min old) is flagged in the same red used for low glucose,
         // so a silently-dead Nightscout connection reads as an alert, not a footnote.
         dc.setColor(minsAgo > 20 ? COLOR_LOW : COLOR_TEXT_TERTIARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, yValue + minAgoYOffset, labelFont, minsAgo + MIN_AGO_LABELS[langMode],
+        // Cyrillic "мин бұрын" is wide enough that at labelFont size (esp. in
+        // value-only mode's FONT_MEDIUM) a 3-digit minute count can clip against
+        // the bezel; step down font size until it fits rather than tuning per-string.
+        var minAgoText = minsAgo + MIN_AGO_LABELS[langMode];
+        var minAgoFont = labelFont;
+        var maxMinAgoW = dc.getWidth() * 0.74;
+        if (dc.getTextWidthInPixels(minAgoText, minAgoFont) > maxMinAgoW) {
+            minAgoFont = Graphics.FONT_SMALL;
+        }
+        if (dc.getTextWidthInPixels(minAgoText, minAgoFont) > maxMinAgoW) {
+            minAgoFont = Graphics.FONT_XTINY;
+        }
+        dc.drawText(cx, yValue + minAgoYOffset, minAgoFont, minAgoText,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
