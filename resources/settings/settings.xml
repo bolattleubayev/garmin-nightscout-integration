@@ -6,6 +6,9 @@
     <setting propertyKey="@Properties.NightscoutSecret" title="@Strings.SettingNightscoutSecretTitle">
         <settingConfig type="alphaNumeric" maxLength="120"/>
     </setting>
+    <setting propertyKey="@Properties.RawSecret" title="@Strings.SettingRawSecretTitle">
+        <settingConfig type="boolean"/>
+    </setting>
     <setting propertyKey="@Properties.ShowChart" title="@Strings.SettingShowChartTitle">
         <settingConfig type="boolean"/>
     </setting>
@@ -14,6 +17,12 @@
             <listEntry value="0">@Strings.LanguageEnglish</listEntry>
             <listEntry value="1">@Strings.LanguageKazakh</listEntry>
             <listEntry value="2">@Strings.LanguageKazakhLatin</listEntry>
+        </settingConfig>
+    </setting>
+    <setting propertyKey="@Properties.GlucoseUnit" title="@Strings.SettingGlucoseUnitTitle">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.UnitMmol</listEntry>
+            <listEntry value="1">@Strings.UnitMgdl</listEntry>
         </settingConfig>
     </setting>
 </settings>

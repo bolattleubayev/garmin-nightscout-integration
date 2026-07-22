@@ -20,6 +20,12 @@ class SimpleWatchFaceApp extends Application.AppBase {
     function onStart(state as Lang.Dictionary?) as Void {
         Background.registerForTemporalEvent(new Time.Duration(5 * 60));
     }
+    // Without this, a changed Setting (e.g. GlucoseUnit, Language) isn't picked up
+    // until the next natural onUpdate tick — up to a minute away, longer still if
+    // the device is showing a partial/always-on update in between full redraws.
+    function onSettingsChanged() as Void {
+        WatchUi.requestUpdate();
+    }
 }
 
 (:background)
@@ -39,13 +45,17 @@ class NightscoutDelegate extends System.ServiceDelegate {
             url = url.substring(0, url.length() - 1);
         }
 
+        var rawSecretProp = Application.Properties.getValue("RawSecret");
+        var rawSecret = (rawSecretProp instanceof Lang.Boolean) && (rawSecretProp as Lang.Boolean);
+        var token = rawSecret ? secret : sha1Hex(secret);
+
         var oneHourAgoMs = (Time.now().value() - 3600).toLong() * 1000;
         Communications.makeWebRequest(
             url + "/api/v1/entries/sgv.json",
             {
                 "find[date][$gte]" => oneHourAgoMs,
                 "count" => 13,
-                "token" => sha1Hex(secret)
+                "token" => token
             },
             {
                 :method => Communications.HTTP_REQUEST_METHOD_GET,
@@ -169,6 +179,25 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         return lang;
     }
 
+    // 0=mmol/L (default/fallback), 1=mg/dL. Storage/history/thresholds always stay
+    // in mmol/L (see NightscoutDelegate); this only controls display formatting.
+    hidden function getUnitMode() as Lang.Number {
+        var unit = Application.Properties.getValue("GlucoseUnit");
+        if (!(unit instanceof Lang.Number) || unit < 0 || unit > 1) { return 0; }
+        return unit;
+    }
+
+    hidden function formatGlucose(mmol as Lang.Float, unitMode as Lang.Number) as Lang.String {
+        if (unitMode == 1) { return (mmol * 18.0f).format("%.0f"); }
+        return mmol.format("%.1f");
+    }
+
+    hidden function formatDelta(delta as Lang.Float, unitMode as Lang.Number) as Lang.String {
+        var val = unitMode == 1 ? delta * 18.0f : delta;
+        var text = val.format(unitMode == 1 ? "%.0f" : "%.1f");
+        return (val >= 0.0f ? "+" : "") + text;
+    }
+
     hidden function scalePx(v as Lang.Number, scale as Lang.Float) as Lang.Number {
         return (v * scale).toNumber();
     }
@@ -272,16 +301,18 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var showChartProp = Application.Properties.getValue("ShowChart");
         var showChart = !(showChartProp instanceof Lang.Boolean) || (showChartProp as Lang.Boolean);
 
+        var unitMode = getUnitMode();
         if (showChart) {
             if (history != null && history.size() > 0 && dateMs != null) {
-                drawScatterPlot(dc, history, timestamps, w, h, dateMs, scale, langMode);
+                drawScatterPlot(dc, history, timestamps, w, h, dateMs, scale, langMode, unitMode);
             }
             // CGM value + trend (bottom)
             var yCgm = scalePx(373, scale);
             if (mmol != null && dateMs != null) {
                 drawCgmBlock(dc, cx, yCgm, mmol, dateMs, history, timestamps, {
                     :valueFont => Graphics.FONT_NUMBER_MILD, :arrowScale => 0.85f * scale, :arrowGap => scalePx(6, scale),
-                    :labelFont => Graphics.FONT_XTINY, :minAgoYOffset => scalePx(47, scale), :langMode => langMode
+                    :labelFont => Graphics.FONT_XTINY, :minAgoYOffset => scalePx(47, scale), :langMode => langMode,
+                    :unitMode => unitMode
                 });
             } else {
                 dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
@@ -296,7 +327,8 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             if (mmol != null && dateMs != null) {
                 drawCgmBlock(dc, cx, yBig, mmol, dateMs, history, timestamps, {
                     :valueFont => Graphics.FONT_NUMBER_THAI_HOT, :arrowScale => 1.5f * scale, :arrowGap => scalePx(12, scale),
-                    :labelFont => Graphics.FONT_MEDIUM, :minAgoYOffset => scalePx(96, scale), :langMode => langMode
+                    :labelFont => Graphics.FONT_MEDIUM, :minAgoYOffset => scalePx(96, scale), :langMode => langMode,
+                    :unitMode => unitMode
                 });
             } else {
                 dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
@@ -323,6 +355,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var labelFont = style[:labelFont] as Graphics.FontType;
         var minAgoYOffset = style[:minAgoYOffset] as Lang.Number;
         var langMode = style[:langMode] as Lang.Number;
+        var unitMode = style[:unitMode] as Lang.Number;
         var minsAgo = ((Time.now().value() - dateMs.toLong() / 1000l) / 60).toNumber();
 
         var trend = null;
@@ -333,7 +366,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             delta = computeDelta15(history, timestamps, mmol);
         }
 
-        var valueText = mmol.format("%.1f");
+        var valueText = formatGlucose(mmol, unitMode);
         var cgmColor = glucoseColor(mmol);
         dc.setColor(cgmColor, Graphics.COLOR_TRANSPARENT);
         if (trend != null) {
@@ -342,7 +375,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             var deltaText = "";
             var colW = arrowW;
             if (delta != null) {
-                deltaText = ((delta as Lang.Float) >= 0.0f ? "+" : "") + (delta as Lang.Float).format("%.1f");
+                deltaText = formatDelta(delta as Lang.Float, unitMode);
                 var deltaW = dc.getTextWidthInPixels(deltaText, labelFont);
                 // The column is sized by whichever is wider — the arrow glyph or the
                 // delta text — so neither one crowds into the value's digits.
@@ -508,7 +541,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         dc.setPenWidth(1);
     }
 
-    hidden function drawScatterPlot(dc as Graphics.Dc, history as Lang.Array, timestamps as Lang.Array?, w as Lang.Number, h as Lang.Number, latestDateMs as Lang.Long, scale as Lang.Float, langMode as Lang.Number) as Void {
+    hidden function drawScatterPlot(dc as Graphics.Dc, history as Lang.Array, timestamps as Lang.Array?, w as Lang.Number, h as Lang.Number, latestDateMs as Lang.Long, scale as Lang.Float, langMode as Lang.Number, unitMode as Lang.Number) as Void {
         var cx = w / 2;
         var cy = h / 2;
         var r = cx - 3;
@@ -546,8 +579,8 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var lineGap = scalePx(5, scale);
         var maxX = circleInnerLeftX(cx, cy, r, plotTop + labelPad, lineGap);
         var minX = circleInnerLeftX(cx, cy, r, plotBottom - labelPad, lineGap);
-        var maxLabelW = dc.getTextWidthInPixels(mmolMax.format("%.1f"), Graphics.FONT_XTINY);
-        var minLabelW = dc.getTextWidthInPixels(mmolMin.format("%.1f"), Graphics.FONT_XTINY);
+        var maxLabelW = dc.getTextWidthInPixels(formatGlucose(mmolMax, unitMode), Graphics.FONT_XTINY);
+        var minLabelW = dc.getTextWidthInPixels(formatGlucose(mmolMin, unitMode), Graphics.FONT_XTINY);
         dc.setColor(COLOR_GRID_LINE, Graphics.COLOR_TRANSPARENT);
         dc.drawLine(maxX + maxLabelW + lineGap, yMax, margin + plotWidth, yMax);
         dc.drawLine(minX + minLabelW + lineGap, yMin, margin + plotWidth, yMin);
@@ -601,8 +634,8 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             dc.setPenWidth(1);
         }
 
-        drawLeftLabel(dc, mmolMax.format("%.1f"), maxX, plotTop + labelPad);
-        drawLeftLabel(dc, mmolMin.format("%.1f"), minX, plotBottom - labelPad);
+        drawLeftLabel(dc, formatGlucose(mmolMax, unitMode), maxX, plotTop + labelPad);
+        drawLeftLabel(dc, formatGlucose(mmolMin, unitMode), minX, plotBottom - labelPad);
     }
 
     hidden function circleInnerLeftX(cx as Lang.Number, cy as Lang.Number, r as Lang.Number, y as Lang.Number, innerMargin as Lang.Number) as Lang.Number {

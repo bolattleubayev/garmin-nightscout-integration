@@ -3,9 +3,13 @@
     <string id="AppName">Sattiv</string>
     <string id="SettingNightscoutUrlTitle">Nightscout URL</string>
     <string id="SettingNightscoutSecretTitle">Nightscout API Secret</string>
+    <string id="SettingRawSecretTitle">Send secret unhashed (Gluroo)</string>
     <string id="SettingShowChartTitle">Show glucose chart</string>
     <string id="SettingLanguageTitle">Language</string>
     <string id="LanguageEnglish">English</string>
     <string id="LanguageKazakh">Қазақша</string>
     <string id="LanguageKazakhLatin">Qazaqşa</string>
+    <string id="SettingGlucoseUnitTitle">Glucose unit</string>
+    <string id="UnitMmol">mmol/L</string>
+    <string id="UnitMgdl">mg/dL</string>
 </strings>
