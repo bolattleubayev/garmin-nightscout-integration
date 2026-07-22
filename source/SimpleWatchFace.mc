@@ -228,12 +228,13 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
             days[info.day_of_week - 1] + " " + info.day + " " + months[info.month - 1],
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        // Time (center)
+        // Time (center; nudged left for Kazakh since the longer steps label sits closer to center)
         var clockTime = System.getClockTime();
         var timeText = clockTime.hour.format("%02d") + ":" + clockTime.min.format("%02d");
         var yTime = scalePx(133, scale);
+        var xTime = langMode != 0 ? cx - scalePx(8, scale) : cx;
         dc.setColor(COLOR_TEXT_PRIMARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, yTime, Graphics.FONT_NUMBER_MILD, timeText,
+        dc.drawText(xTime, yTime, Graphics.FONT_NUMBER_MILD, timeText,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // Heart rate (left of time)
