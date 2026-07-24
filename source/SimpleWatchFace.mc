@@ -92,6 +92,10 @@ class NightscoutDelegate extends System.ServiceDelegate {
                     var latest = arr[0] as Lang.Dictionary;
                     Application.Storage.setValue("cgmMmol", (latest["sgv"] as Lang.Number).toFloat() / 18.0);
                     Application.Storage.setValue("cgmDate", (latest["date"] as Lang.Number).toLong());
+                    // Present only if the CGM source uploads its own trend (Dexcom/xDrip/Libre
+                    // typically do); absent for e.g. manual entries. Null falls back to no arrow.
+                    var direction = latest["direction"];
+                    Application.Storage.setValue("cgmDirection", direction instanceof Lang.String ? direction : null);
 
                     // API returns newest-first; reverse so index 0 = oldest
                     var size = arr.size();
@@ -198,6 +202,17 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var unit = Application.Properties.getValue("GlucoseUnit");
         if (!(unit instanceof Lang.Number) || unit < 0 || unit > 1) { return 0; }
         return unit;
+    }
+
+    // 0=fixed-interval (30min regression / 15min lookback, default/fallback),
+    // 1=Nightscout style with computed arrow (consecutive-reading slope, matching
+    // bgnow.js's delta logic), 2=Nightscout style with device-reported arrow
+    // (uses the CGM source's own "direction" field instead of computing a slope —
+    // this is what Nightscout itself actually displays, see direction.js).
+    hidden function getTrendCalcMode() as Lang.Number {
+        var mode = Application.Properties.getValue("TrendCalcMode");
+        if (!(mode instanceof Lang.Number) || mode < 0 || mode > 2) { return 0; }
+        return mode;
     }
 
     hidden function formatGlucose(mmol as Lang.Float, unitMode as Lang.Number) as Lang.String {
@@ -351,6 +366,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
 
         var unitMode = getUnitMode();
         var thresholds = getThresholds();
+        var trendCalcMode = getTrendCalcMode();
         if (showChart) {
             if (history != null && history.size() > 0 && dateMs != null) {
                 drawScatterPlot(dc, history, timestamps, w, h, dateMs, scale, {
@@ -363,7 +379,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
                 drawCgmBlock(dc, cx, yCgm, mmol, dateMs, history, timestamps, {
                     :valueFont => Graphics.FONT_NUMBER_MILD, :arrowScale => 0.85f * scale, :arrowGap => scalePx(6, scale),
                     :labelFont => Graphics.FONT_XTINY, :minAgoYOffset => scalePx(47, scale), :langMode => langMode,
-                    :unitMode => unitMode, :thresholds => thresholds
+                    :unitMode => unitMode, :thresholds => thresholds, :trendCalcMode => trendCalcMode
                 });
             } else {
                 dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
@@ -379,7 +395,7 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
                 drawCgmBlock(dc, cx, yBig, mmol, dateMs, history, timestamps, {
                     :valueFont => Graphics.FONT_NUMBER_THAI_HOT, :arrowScale => 1.5f * scale, :arrowGap => scalePx(12, scale),
                     :labelFont => Graphics.FONT_MEDIUM, :minAgoYOffset => scalePx(96, scale), :langMode => langMode,
-                    :unitMode => unitMode, :thresholds => thresholds
+                    :unitMode => unitMode, :thresholds => thresholds, :trendCalcMode => trendCalcMode
                 });
             } else {
                 dc.setColor(COLOR_TEXT_SECONDARY, Graphics.COLOR_TRANSPARENT);
@@ -394,7 +410,8 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
     // (not fixed pixel offsets) so the pair stays centered on and bounded by the
     // value's own height at any font size — same logic serves both the compact
     // chart-mode readout and the large value-only-mode readout.
-    // `style` keys: :valueFont, :arrowScale, :arrowGap, :labelFont, :minAgoYOffset, :langMode —
+    // `style` keys: :valueFont, :arrowScale, :arrowGap, :labelFont, :minAgoYOffset, :langMode,
+    // :unitMode, :thresholds, :trendCalcMode —
     // bundled into a Dictionary because some devices (e.g. fenix 6, older VM) cap
     // function calls at 9 arguments; passing the params separately blew past that.
     hidden function drawCgmBlock(dc as Graphics.Dc, cx as Lang.Number, yValue as Lang.Number,
@@ -408,14 +425,25 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         var langMode = style[:langMode] as Lang.Number;
         var unitMode = style[:unitMode] as Lang.Number;
         var thresholds = style[:thresholds] as Lang.Dictionary;
+        var trendCalcMode = style[:trendCalcMode] as Lang.Number;
         var minsAgo = ((Time.now().value() - dateMs.toLong() / 1000l) / 60).toNumber();
 
         var trend = null;
         var delta = null;
         if (history != null && timestamps != null && history.size() > 0) {
-            var slope = computeTrendSlope(history, timestamps);
-            if (slope != null) { trend = slopeToTrend(slope); }
-            delta = computeDelta15(history, timestamps, mmol);
+            if (trendCalcMode == 2) {
+                var directionStr = Application.Storage.getValue("cgmDirection") as Lang.String?;
+                trend = directionToTrend(directionStr);
+                delta = computeDeltaConsecutive(history, timestamps, mmol);
+            } else if (trendCalcMode == 1) {
+                var slope = computeTrendSlopeConsecutive(history, timestamps);
+                if (slope != null) { trend = slopeToTrend(slope); }
+                delta = computeDeltaConsecutive(history, timestamps, mmol);
+            } else {
+                var slope = computeTrendSlope(history, timestamps);
+                if (slope != null) { trend = slopeToTrend(slope); }
+                delta = computeDelta15(history, timestamps, mmol);
+            }
         }
 
         var valueText = formatGlucose(mmol, unitMode);
@@ -538,6 +566,58 @@ class SimpleWatchFaceView extends WatchUi.WatchFace {
         }
         if (bestIdx < 0 || bestDiff > 300) { return null; }
         return latestVal - (history[bestIdx] as Lang.Float).toFloat();
+    }
+
+    // Nightscout style: latest reading minus the immediately preceding one
+    // (mirrors bgnow.js's bucket delta), scaled to a 5-minute-equivalent if the
+    // gap between them exceeds 9 minutes so a sensor dropout doesn't show a huge jump.
+    hidden function computeDeltaConsecutive(history as Lang.Array, timestamps as Lang.Array, latestVal as Lang.Float) as Lang.Float? {
+        var count = timestamps.size();
+        if (count < 2 || history.size() < count) { return null; }
+
+        var recentSecs = timestamps[count - 1] as Lang.Number;
+        var prevSecs = timestamps[count - 2] as Lang.Number;
+        var elapsedMins = (recentSecs - prevSecs).toFloat() / 60.0f;
+        if (elapsedMins <= 0.0f) { return null; }
+
+        var absolute = latestVal - (history[count - 2] as Lang.Float).toFloat();
+        if (elapsedMins > 9.0f) { return absolute / elapsedMins * 5.0f; }
+        return absolute;
+    }
+
+    // Nightscout style: slope between the two most recent consecutive readings
+    // only, rather than a regression over a fixed rolling window.
+    hidden function computeTrendSlopeConsecutive(history as Lang.Array, timestamps as Lang.Array) as Lang.Float? {
+        var count = history.size();
+        if (count < 2 || timestamps.size() < count) { return null; }
+
+        var nowSecs = Time.now().value().toNumber();
+        var latestSecs = timestamps[count - 1] as Lang.Number;
+        if (nowSecs - latestSecs > 1200) { return null; }
+
+        var prevSecs = timestamps[count - 2] as Lang.Number;
+        var elapsedMins = (latestSecs - prevSecs).toFloat() / 60.0f;
+        if (elapsedMins <= 0.0f) { return null; }
+
+        var deltaVal = (history[count - 1] as Lang.Float).toFloat() - (history[count - 2] as Lang.Float).toFloat();
+        return deltaVal / elapsedMins;
+    }
+
+    // Maps Nightscout's own "direction" string — already computed upstream by the
+    // CGM source (Dexcom/xDrip/Libre) and passed through unchanged by Nightscout's
+    // own direction.js — onto this app's -3..3 trend scale. Null/NONE/NOT COMPUTABLE/
+    // RATE OUT OF RANGE/unrecognized all collapse to null (no arrow shown), same as
+    // a null slope from the computed modes.
+    hidden function directionToTrend(direction as Lang.String?) as Lang.Number? {
+        if (direction == null) { return null; }
+        if (direction.equals("TripleUp") || direction.equals("DoubleUp")) { return 3; }
+        if (direction.equals("SingleUp")) { return 2; }
+        if (direction.equals("FortyFiveUp")) { return 1; }
+        if (direction.equals("Flat")) { return 0; }
+        if (direction.equals("FortyFiveDown")) { return -1; }
+        if (direction.equals("SingleDown")) { return -2; }
+        if (direction.equals("DoubleDown") || direction.equals("TripleDown")) { return -3; }
+        return null;
     }
 
     // Thresholds from Dexcom standard: 1 mg/dL/min = 0.0556 mmol/L/min

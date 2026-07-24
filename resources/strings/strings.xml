@@ -17,4 +17,8 @@
     <string id="SettingHighThresholdTitle">High threshold (mmol/L) — e.g. 7.0 × 18 ≈ 126 mg/dL</string>
     <string id="SettingVeryHighThresholdTitle">Very high threshold (mmol/L) — e.g. 10.0 × 18 ≈ 180 mg/dL</string>
     <string id="SettingUse12HourTitle">Use 12-hour time</string>
+    <string id="SettingTrendCalcModeTitle">Arrow/delta calculation</string>
+    <string id="TrendCalcModeInterval">Fixed interval (30/15 min)</string>
+    <string id="TrendCalcModeNightscout">Nightscout style (computed arrow)</string>
+    <string id="TrendCalcModeNightscoutDirection">Nightscout style (device arrow)</string>
 </strings>

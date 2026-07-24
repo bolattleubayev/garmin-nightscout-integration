@@ -40,4 +40,11 @@
     <setting propertyKey="@Properties.Use12Hour" title="@Strings.SettingUse12HourTitle">
         <settingConfig type="boolean"/>
     </setting>
+    <setting propertyKey="@Properties.TrendCalcMode" title="@Strings.SettingTrendCalcModeTitle">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.TrendCalcModeInterval</listEntry>
+            <listEntry value="1">@Strings.TrendCalcModeNightscout</listEntry>
+            <listEntry value="2">@Strings.TrendCalcModeNightscoutDirection</listEntry>
+        </settingConfig>
+    </setting>
 </settings>

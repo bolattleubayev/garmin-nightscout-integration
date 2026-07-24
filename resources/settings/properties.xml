@@ -11,4 +11,5 @@
     <property id="HighThreshold" type="float">7.0</property>
     <property id="VeryHighThreshold" type="float">10.0</property>
     <property id="Use12Hour" type="boolean">false</property>
+    <property id="TrendCalcMode" type="number">0</property>
 </properties>
