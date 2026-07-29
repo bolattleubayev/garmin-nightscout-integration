@@ -25,6 +25,17 @@ Sattiv brings your continuous glucose monitor readings to your wrist, pulled dir
 
 **Setup:** After installing, open this watch face's Settings in Garmin Connect Mobile and enter your Nightscout URL and API secret. Data refreshes automatically in the background every 5 minutes.
 
+**All settings, explained:**
+- **Nightscout URL** — your Nightscout site's base address (e.g. `https://your-site.herokuapp.com`), no trailing slash needed.
+- **Nightscout API Secret** — your Nightscout API secret; hashed on-device before it's sent, so the plaintext never goes over the network.
+- **Send secret unhashed (Gluroo)** — off by default. Turn on only if you're pulling from a Gluroo Global Connect Nightscout bridge instead of real Nightscout — Gluroo expects the secret as plain text, not hashed, and authentication fails otherwise.
+- **Show glucose chart** — on shows a 60-minute glucose history plot above the current reading; off replaces it with one large single glucose readout.
+- **Language** — English, Kazakh (Cyrillic), or Kazakh (Latin); changes all on-face text (days, months, labels).
+- **Glucose unit** — mmol/L or mg/dL for the displayed value, delta, and chart axis.
+- **Very low / Low / High / Very high threshold** — the mmol/L cutoffs that drive the color coding of the glucose value and chart dots (red/amber/green zones). Adjust to match your own target range.
+- **Use 12-hour time** — switches the clock between 24-hour and 12-hour display.
+- **Arrow/delta calc** — how the trend arrow and delta number are computed: *Fixed interval* compares against a reading from ~15–30 minutes ago; *Nightscout style, computed* (default) derives both from just the last two readings, mirroring how Nightscout itself calculates them; *Nightscout style, device arrow* keeps that same delta but shows the trend arrow exactly as reported by your CGM/uploader, rather than one computed on-device.
+
 ---
 
 **Disclaimer:** Sattiv is an independent, community-built project and is not affiliated with, endorsed by, or sponsored by Garmin, Dexcom, Abbott, or the Nightscout Foundation. It is not a medical device and is not a substitute for your primary CGM receiver or app — always confirm readings on your CGM's official display before making any treatment decision. Displayed data may be delayed or unavailable due to network, server, or sensor issues. Use at your own risk. Full disclaimer and privacy policy: https://bolattleubayev.github.io/garmin-nightscout-integration/privacy-policy.html
