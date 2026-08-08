@@ -34,7 +34,7 @@ Sattiv brings your continuous glucose monitor readings to your wrist, pulled dir
 - **Glucose unit** — mmol/L or mg/dL for the displayed value, delta, and chart axis.
 - **Very low / Low / High / Very high threshold** — the mmol/L cutoffs that drive the color coding of the glucose value and chart dots (red/amber/green zones). Adjust to match your own target range.
 - **Use 12-hour time** — switches the clock between 24-hour and 12-hour display.
-- **Arrow/delta calc** — how the trend arrow and delta number are computed: *Fixed interval* compares against a reading from ~15–30 minutes ago; *Nightscout style, computed* (default) derives both from just the last two readings, mirroring how Nightscout itself calculates them; *Nightscout style, device arrow* keeps that same delta but shows the trend arrow exactly as reported by your CGM/uploader, rather than one computed on-device.
+- **Arrow/delta calc** — how the trend arrow and delta number are computed: *Fixed interval* compares against a reading from ~15–30 minutes ago; *Nightscout style, computed* derives both from just the last two readings, mirroring how Nightscout itself calculates them; *Nightscout style, device arrow* (default) keeps that same delta but shows the trend arrow exactly as reported by your CGM/uploader via Nightscout, rather than one computed on-device.
 
 ---
 
