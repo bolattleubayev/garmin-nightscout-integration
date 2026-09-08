@@ -1,24 +1,35 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <strings>
     <string id="AppName">Sattiv</string>
-    <string id="SettingNightscoutUrlTitle">Nightscout URL</string>
-    <string id="SettingNightscoutSecretTitle">Nightscout API Secret</string>
-    <string id="SettingRawSecretTitle">Send secret unhashed (Gluroo)</string>
-    <string id="SettingShowChartTitle">Show glucose chart</string>
+
+    <string id="SettingDataSourceTitle">Data source — where glucose readings are pulled from</string>
+    <string id="DataSourceNightscout">Nightscout (or any Nightscout-compatible site)</string>
+    <string id="DataSourceGluroo">Gluroo bridge (ns.gluroo.com)</string>
+    <string id="DataSourceXdrip">xDrip+ web service (phone on the same Wi-Fi)</string>
+
+    <string id="SettingNightscoutUrlTitle">Server address — your Nightscout site, the Gluroo URL, or http://PHONE-IP:17580 for xDrip+</string>
+    <string id="SettingNightscoutSecretTitle">Access secret — Nightscout API secret, Gluroo token, or xDrip+ web-service secret. Leave blank if xDrip+ has no secret set.</string>
+
+    <string id="SettingShowChartTitle">Show the glucose history chart</string>
+
     <string id="SettingLanguageTitle">Language</string>
     <string id="LanguageEnglish">English</string>
     <string id="LanguageKazakh">Қазақша</string>
     <string id="LanguageKazakhLatin">Qazaqşa</string>
-    <string id="SettingGlucoseUnitTitle">Glucose unit</string>
+
+    <string id="SettingGlucoseUnitTitle">Glucose units shown on the watch face</string>
     <string id="UnitMmol">mmol/L</string>
     <string id="UnitMgdl">mg/dL</string>
-    <string id="SettingVeryLowThresholdTitle">Very low threshold (mmol/L) — e.g. 3.0 × 18 ≈ 54 mg/dL</string>
-    <string id="SettingLowThresholdTitle">Low threshold (mmol/L) — e.g. 4.0 × 18 ≈ 72 mg/dL</string>
-    <string id="SettingHighThresholdTitle">High threshold (mmol/L) — e.g. 7.0 × 18 ≈ 126 mg/dL</string>
-    <string id="SettingVeryHighThresholdTitle">Very high threshold (mmol/L) — e.g. 10.0 × 18 ≈ 180 mg/dL</string>
-    <string id="SettingUse12HourTitle">Use 12-hour time</string>
-    <string id="SettingTrendCalcModeTitle">Arrow/delta calc — how the trend arrow and delta are worked out</string>
-    <string id="TrendCalcModeInterval">Fixed interval: delta vs. reading ~15 min ago, arrow from slope over ~30 min</string>
-    <string id="TrendCalcModeNightscout">Nightscout style, computed: arrow + delta from slope between the last two readings</string>
-    <string id="TrendCalcModeNightscoutDirection">Nightscout style, device arrow: arrow as reported by the CGM/device, delta from last two readings</string>
+
+    <string id="SettingVeryLowThresholdTitle">Urgent-low limit in mmol/L — reading turns bright red below this (3.0 mmol/L = 54 mg/dL)</string>
+    <string id="SettingLowThresholdTitle">Low limit in mmol/L — reading turns red below this (4.0 mmol/L = 72 mg/dL)</string>
+    <string id="SettingHighThresholdTitle">High limit in mmol/L — reading turns amber above this (7.0 mmol/L = 126 mg/dL)</string>
+    <string id="SettingVeryHighThresholdTitle">Urgent-high limit in mmol/L — reading turns bright yellow above this (10.0 mmol/L = 180 mg/dL)</string>
+
+    <string id="SettingUse12HourTitle">Use a 12-hour clock with AM and PM</string>
+
+    <string id="SettingTrendCalcModeTitle">How the trend arrow and delta are calculated</string>
+    <string id="TrendCalcModeInterval">Fixed interval — delta against the reading about 15 min ago, arrow from the last 30 min</string>
+    <string id="TrendCalcModeNightscout">Nightscout style — arrow and delta from the last two readings</string>
+    <string id="TrendCalcModeNightscoutDirection">Nightscout style with device arrow — arrow comes from the CGM, delta from the last two readings</string>
 </strings>

@@ -19,6 +19,21 @@ class SimpleWatchFaceApp extends Application.AppBase {
     function getServiceDelegate() { return [new NightscoutDelegate()]; }
     function onStart(state as Lang.Dictionary?) as Void {
         Background.registerForTemporalEvent(new Time.Duration(5 * 60));
+        migrateLegacyRawSecret();
+    }
+
+    // Before the "Data source" dropdown existed, Gluroo users flipped a boolean
+    // "Send secret unhashed" toggle. Move anyone still on that onto DataSource=1
+    // once, so the dropdown reflects what they're actually using. resolveDataSource
+    // still honors the old flag defensively in case this hasn't run yet.
+    hidden function migrateLegacyRawSecret() as Void {
+        var raw = Application.Properties.getValue("RawSecret");
+        if (!((raw instanceof Lang.Boolean) && (raw as Lang.Boolean))) { return; }
+        var ds = Application.Properties.getValue("DataSource");
+        if (!(ds instanceof Lang.Number) || ds == 0) {
+            Application.Properties.setValue("DataSource", 1);
+        }
+        Application.Properties.setValue("RawSecret", false);
     }
     // Without this, a changed Setting (e.g. GlucoseUnit, Language) isn't picked up
     // until the next natural onUpdate tick — up to a minute away, longer still if
@@ -33,11 +48,30 @@ class NightscoutDelegate extends System.ServiceDelegate {
     (:background)
     function initialize() { ServiceDelegate.initialize(); }
 
+    // 0 = Nightscout / Nightscout-compatible site, 1 = Gluroo bridge,
+    // 2 = xDrip+ local web service. Falls back to the legacy RawSecret flag
+    // (Gluroo) for users who set it before the DataSource dropdown existed and
+    // whose one-time migration hasn't run yet.
+    (:background)
+    hidden function resolveDataSource() as Lang.Number {
+        var ds = Application.Properties.getValue("DataSource");
+        if (!(ds instanceof Lang.Number) || ds < 0 || ds > 2) { ds = 0; }
+        if (ds == 0) {
+            var raw = Application.Properties.getValue("RawSecret");
+            if ((raw instanceof Lang.Boolean) && (raw as Lang.Boolean)) { return 1; }
+        }
+        return ds;
+    }
+
     (:background)
     function onTemporalEvent() as Void {
         var url = Application.Properties.getValue("NightscoutUrl") as Lang.String?;
         var secret = Application.Properties.getValue("NightscoutSecret") as Lang.String?;
-        if (url == null || url.length() == 0 || secret == null || secret.length() == 0) {
+        var source = resolveDataSource();
+        var hasSecret = secret != null && secret.length() > 0;
+        // Nightscout and Gluroo always need a secret; an xDrip+ web service that
+        // has no secret set (open on a trusted LAN) is allowed through without one.
+        if (url == null || url.length() == 0 || (source != 2 && !hasSecret)) {
             Background.exit(null);
             return;
         }
@@ -45,22 +79,31 @@ class NightscoutDelegate extends System.ServiceDelegate {
             url = url.substring(0, url.length() - 1);
         }
 
-        var rawSecretProp = Application.Properties.getValue("RawSecret");
-        var rawSecret = (rawSecretProp instanceof Lang.Boolean) && (rawSecretProp as Lang.Boolean);
-        var token = rawSecret ? secret : sha1Hex(secret);
+        var hashed = hasSecret ? sha1Hex(secret as Lang.String) : null;
+        var params = ({ "count" => 13 }) as Lang.Dictionary;
+        var options = ({
+            :method => Communications.HTTP_REQUEST_METHOD_GET,
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        }) as Lang.Dictionary;
 
-        var oneHourAgoMs = (Time.now().value() - 3600).toLong() * 1000;
+        if (source == 2) {
+            // xDrip+ web service: SHA1 of the secret goes in the api-secret header,
+            // not a query param. It serves the latest `count` entries and may ignore
+            // the date filter, so count alone is enough.
+            if (hashed != null) {
+                options[:headers] = { "api-secret" => hashed };
+            }
+        } else {
+            // Nightscout / Gluroo: auth via the token query param. Gluroo's bridge
+            // wants the secret verbatim; real Nightscout wants its SHA1 hash.
+            params["token"] = (source == 1) ? secret : hashed;
+            params["find[date][$gte]"] = (Time.now().value() - 3600).toLong() * 1000;
+        }
+
         Communications.makeWebRequest(
             url + "/api/v1/entries/sgv.json",
-            {
-                "find[date][$gte]" => oneHourAgoMs,
-                "count" => 13,
-                "token" => token
-            },
-            {
-                :method => Communications.HTTP_REQUEST_METHOD_GET,
-                :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
-            },
+            params,
+            options,
             method(:onResponse)
         );
     }

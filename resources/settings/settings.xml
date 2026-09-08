@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <settings>
+    <setting propertyKey="@Properties.DataSource" title="@Strings.SettingDataSourceTitle">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.DataSourceNightscout</listEntry>
+            <listEntry value="1">@Strings.DataSourceGluroo</listEntry>
+            <listEntry value="2">@Strings.DataSourceXdrip</listEntry>
+        </settingConfig>
+    </setting>
     <setting propertyKey="@Properties.NightscoutUrl" title="@Strings.SettingNightscoutUrlTitle">
         <settingConfig type="alphaNumeric" maxLength="120"/>
     </setting>
     <setting propertyKey="@Properties.NightscoutSecret" title="@Strings.SettingNightscoutSecretTitle">
         <settingConfig type="alphaNumeric" maxLength="120"/>
-    </setting>
-    <setting propertyKey="@Properties.RawSecret" title="@Strings.SettingRawSecretTitle">
-        <settingConfig type="boolean"/>
     </setting>
     <setting propertyKey="@Properties.ShowChart" title="@Strings.SettingShowChartTitle">
         <settingConfig type="boolean"/>

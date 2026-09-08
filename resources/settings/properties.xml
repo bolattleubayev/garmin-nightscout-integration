@@ -2,6 +2,10 @@
 <properties>
     <property id="NightscoutUrl" type="string">https://your-nightscout-site.herokuapp.com</property>
     <property id="NightscoutSecret" type="string"></property>
+    <property id="DataSource" type="number">0</property>
+    <!-- Legacy pre-DataSource Gluroo toggle. Kept so an already-set value still
+         migrates (see resolveDataSource / migrateLegacyRawSecret); no longer in the
+         settings UI. -->
     <property id="RawSecret" type="boolean">false</property>
     <property id="ShowChart" type="boolean">true</property>
     <property id="Language" type="number">0</property>
